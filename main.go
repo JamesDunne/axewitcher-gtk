@@ -22,7 +22,7 @@ func main() {
 	win.Connect("destroy", gtk.MainQuit)
 
 	// Set the default window size for raspberry pi official display:
-	win.SetDefaultSize(720, 480)
+	win.SetDefaultSize(800, 480)
 
 	// Create MIDI interface:
 	midi, err := axewitcher.NewMidi()
