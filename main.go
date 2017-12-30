@@ -34,21 +34,22 @@ func main() {
 	// Initialize controller:
 	controller := axewitcher.NewController(midi)
 
-	// Listen to key-press-events:
-	win.Connect("key-press-event", func(win *gtk.Window, ev *gdk.Event) {
+	keyEventHandler := func(win *gtk.Window, ev *gdk.Event) {
 		keyEvent := &gdk.EventKey{ev}
+
 		// PCsensor Footswitch3 defaults to A,B,C keys from left-to-right, mutually exclusive:
 		var fswEvent axewitcher.FswEvent
+		fswEvent.State = keyEvent.State() != 0
 		switch keyEvent.KeyVal() {
-		case gdk.KEY_A:
+		case gdk.KEY_A, gdk.KEY_a:
 			// Reset:
 			fswEvent.Fsw = axewitcher.FswReset
 			break
-		case gdk.KEY_B:
+		case gdk.KEY_B, gdk.KEY_b:
 			// Prev:
 			fswEvent.Fsw = axewitcher.FswPrev
 			break
-		case gdk.KEY_C:
+		case gdk.KEY_C, gdk.KEY_c:
 			// Next:
 			fswEvent.Fsw = axewitcher.FswNext
 			break
@@ -64,8 +65,12 @@ func main() {
 		// TODO.
 
 		// Redraw UI:
-		win.QueueDraw()
-	})
+		//win.QueueDraw()
+	}
+
+	// Listen to key-press-events:
+	win.Connect("key-press-event", keyEventHandler)
+	win.Connect("key-release-event", keyEventHandler)
 
 	// Recursively show all widgets contained in this window.
 	win.ShowAll()
