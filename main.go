@@ -6,6 +6,7 @@ import (
 
 	"github.com/JamesDunne/axewitcher"
 	"github.com/gotk3/gotk3/gdk"
+	//"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
 )
 
@@ -42,6 +43,14 @@ func main() {
 	// Set the default window size for raspberry pi official display:
 	win.SetDefaultSize(800, 480)
 
+	grid, _ := gtk.GridNew()
+	grid.SetOrientation(gtk.ORIENTATION_VERTICAL)
+	cbo, _ := gtk.ComboBoxTextNew()
+	cbo.SetHExpand(true)
+	grid.Add(cbo)
+	grid.SetOrientation(gtk.ORIENTATION_HORIZONTAL)
+	win.Add(grid)
+
 	// Create MIDI interface:
 	midi, err := axewitcher.NewMidi()
 	if err != nil {
@@ -56,6 +65,12 @@ func main() {
 		log.Fatal("Unable to load programs: ", err)
 	}
 	controller.Init()
+
+	// Add program names to combobox:
+	for _, pr := range controller.Programs {
+		log.Println(pr.Name)
+		cbo.AppendText(pr.Name)
+	}
 
 	// Listen to key-press-events:
 	win.Connect("key-press-event", func(win *gtk.Window, ev *gdk.Event) {
