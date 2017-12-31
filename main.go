@@ -67,6 +67,7 @@ func main() {
 	grid, _ := gtk.GridNew()
 	grid.SetOrientation(gtk.ORIENTATION_VERTICAL)
 
+	// Create combobox for program selection:
 	cbo, _ := gtk.ComboBoxTextNew()
 	cbo.SetHExpand(true)
 	grid.Add(cbo)
@@ -76,6 +77,7 @@ func main() {
 	gridSplit.SetHExpand(true)
 	gridSplit.SetVExpand(true)
 
+	// Create UI widgets to represent amp states:
 	ampUi := [2]*AmpUI{
 		AmpUINew("MG"),
 		AmpUINew("JD"),
