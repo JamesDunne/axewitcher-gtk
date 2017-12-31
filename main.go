@@ -30,6 +30,8 @@ func keyEventToFswEvent(keyEvent *gdk.EventKey) axewitcher.FswButton {
 
 // Hold all UI widgets that should be updated from controller:
 type AmpUI struct {
+	s        *axewitcher.AmpState
+	c        *axewitcher.AmpConfig
 	topStack *gtk.Stack
 	Volume   *gtk.Scale
 }
@@ -38,8 +40,11 @@ func (u *AmpUI) TopWidget() gtk.IWidget {
 	return u.topStack
 }
 
-func AmpUINew(name string) *AmpUI {
-	u := &AmpUI{}
+func AmpUINew(name string, s *axewitcher.AmpState, c *axewitcher.AmpConfig) *AmpUI {
+	u := &AmpUI{
+		s: s,
+		c: c,
+	}
 
 	u.topStack, _ = gtk.StackNew()
 	u.topStack.SetHExpand(true)
@@ -47,7 +52,6 @@ func AmpUINew(name string) *AmpUI {
 
 	grid, _ := gtk.GridNew()
 	grid.SetOrientation(gtk.ORIENTATION_VERTICAL)
-	u.topStack.Add(grid)
 
 	lblName, _ := gtk.LabelNew(name)
 	grid.Add(lblName)
@@ -57,10 +61,14 @@ func AmpUINew(name string) *AmpUI {
 		0,
 		127,
 		1)
-	u.Volume.SetValue(98)
+	u.Volume.SetValue(float64(s.Volume))
+	u.Volume.Connect("value-changed", func(r *gtk.Scale) {
+		s.Volume = uint8(r.GetValue())
+	})
 	u.Volume.SetHExpand(true)
 
 	grid.Add(u.Volume)
+	u.topStack.Add(grid)
 
 	return u
 }
@@ -80,31 +88,6 @@ func main() {
 	// Set the default window size for raspberry pi official display:
 	win.SetDefaultSize(800, 480)
 
-	grid, _ := gtk.GridNew()
-	grid.SetOrientation(gtk.ORIENTATION_VERTICAL)
-
-	// Create combobox for program selection:
-	cbo, _ := gtk.ComboBoxTextNew()
-	cbo.SetHExpand(true)
-	grid.Add(cbo)
-
-	gridSplit, _ := gtk.GridNew()
-	gridSplit.SetOrientation(gtk.ORIENTATION_HORIZONTAL)
-	gridSplit.SetHExpand(true)
-	gridSplit.SetVExpand(true)
-
-	// Create UI widgets to represent amp states:
-	ampUi := [2]*AmpUI{
-		AmpUINew("MG"),
-		AmpUINew("JD"),
-	}
-
-	gridSplit.Add(ampUi[0].TopWidget())
-	gridSplit.Add(ampUi[1].TopWidget())
-
-	grid.Add(gridSplit)
-	win.Add(grid)
-
 	// Create MIDI interface:
 	midi, err := axewitcher.NewMidi()
 	if err != nil {
@@ -120,11 +103,38 @@ func main() {
 	}
 	controller.Init()
 
+	// Create grid for UI:
+	grid, _ := gtk.GridNew()
+	grid.SetOrientation(gtk.ORIENTATION_VERTICAL)
+
+	// Create combobox for program selection:
+	cbo, _ := gtk.ComboBoxTextNew()
+	cbo.SetHExpand(true)
+
 	// Add program names to combobox:
 	for _, pr := range controller.Programs {
 		log.Println(pr.Name)
 		cbo.AppendText(pr.Name)
 	}
+
+	grid.Add(cbo)
+
+	gridSplit, _ := gtk.GridNew()
+	gridSplit.SetOrientation(gtk.ORIENTATION_HORIZONTAL)
+	gridSplit.SetHExpand(true)
+	gridSplit.SetVExpand(true)
+
+	// Create UI widgets to represent amp states:
+	ampUi := [2]*AmpUI{
+		AmpUINew("MG", &controller.Curr.Amp[0], &controller.Curr.AmpConfig[0]),
+		AmpUINew("JD", &controller.Curr.Amp[1], &controller.Curr.AmpConfig[1]),
+	}
+
+	gridSplit.Add(ampUi[0].TopWidget())
+	gridSplit.Add(ampUi[1].TopWidget())
+
+	grid.Add(gridSplit)
+	win.Add(grid)
 
 	// Listen to key-press-events:
 	win.Connect("key-press-event", func(win *gtk.Window, ev *gdk.Event) {
