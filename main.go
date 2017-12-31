@@ -28,6 +28,27 @@ func keyEventToFswEvent(keyEvent *gdk.EventKey) axewitcher.FswButton {
 	}
 }
 
+// Hold all UI widgets that should be updated from controller:
+type AmpUI struct {
+	topStack *gtk.Stack
+	lblName  *gtk.Label
+}
+
+func (u *AmpUI) TopWidget() gtk.IWidget {
+	return u.topStack
+}
+
+func AmpUINew(name string) *AmpUI {
+	u := &AmpUI{}
+	u.topStack, _ = gtk.StackNew()
+	u.topStack.SetHExpand(true)
+	//u.topStack.SetVExpand(true)
+	u.lblName, _ = gtk.LabelNew(name)
+	u.topStack.Add(u.lblName)
+
+	return u
+}
+
 func main() {
 	gtk.Init(nil)
 
@@ -50,25 +71,19 @@ func main() {
 	cbo.SetHExpand(true)
 	grid.Add(cbo)
 
-	stackMG, _ := gtk.StackNew()
-	stackMG.SetHExpand(true)
-	stackMG.SetVExpand(true)
-	lblMG, _ := gtk.LabelNew("MG")
-	stackMG.Add(lblMG)
-
-	stackJD, _ := gtk.StackNew()
-	stackJD.SetHExpand(true)
-	stackJD.SetVExpand(true)
-	lblJD, _ := gtk.LabelNew("JD")
-	stackJD.Add(lblJD)
-
 	gridSplit, _ := gtk.GridNew()
 	gridSplit.SetOrientation(gtk.ORIENTATION_HORIZONTAL)
 	gridSplit.SetHExpand(true)
 	gridSplit.SetVExpand(true)
 
-	gridSplit.Add(stackMG)
-	gridSplit.Add(stackJD)
+	ampUi := [2]*AmpUI{
+		AmpUINew("MG"),
+		AmpUINew("JD"),
+	}
+
+	gridSplit.Add(ampUi[0].TopWidget())
+	gridSplit.Add(ampUi[1].TopWidget())
+
 	grid.Add(gridSplit)
 	win.Add(grid)
 
