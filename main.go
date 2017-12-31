@@ -30,10 +30,11 @@ func keyEventToFswEvent(keyEvent *gdk.EventKey) axewitcher.FswButton {
 
 // Hold all UI widgets that should be updated from controller:
 type AmpUI struct {
-	s        *axewitcher.AmpState
-	c        *axewitcher.AmpConfig
-	topStack *gtk.Stack
-	Volume   *gtk.Scale
+	s         *axewitcher.AmpState
+	c         *axewitcher.AmpConfig
+	topStack  *gtk.Stack
+	Volume    *gtk.Scale
+	FxButtons [5]*gtk.ToggleButton
 }
 
 func (u *AmpUI) TopWidget() gtk.IWidget {
@@ -56,21 +57,42 @@ func AmpUINew(name string, s *axewitcher.AmpState, c *axewitcher.AmpConfig) *Amp
 	lblName, _ := gtk.LabelNew(name)
 	grid.Add(lblName)
 
+	// Volume control:
 	u.Volume, _ = gtk.ScaleNewWithRange(
 		gtk.ORIENTATION_HORIZONTAL,
 		0,
 		127,
 		1)
+	u.Volume.SetHExpand(true)
 	u.Volume.SetValue(float64(s.Volume))
 	u.Volume.Connect("value-changed", func(r *gtk.Scale) {
 		s.Volume = uint8(r.GetValue())
 	})
-	u.Volume.SetHExpand(true)
-
 	grid.Add(u.Volume)
+
+	// FX toggle buttons:
+	for a := 0; a < 5; a++ {
+		a := a
+		u.FxButtons[a], _ = gtk.ToggleButtonNewWithLabel(c.Fx[a].Name)
+		u.FxButtons[a].Connect("toggled", func(btn *gtk.ToggleButton) {
+			s.Fx[a].Enabled = btn.GetActive()
+		})
+		grid.Add(u.FxButtons[a])
+	}
+
 	u.topStack.Add(grid)
 
 	return u
+}
+
+func (u *AmpUI) Update() {
+	// Update volume range:
+	u.Volume.SetValue(float64(u.s.Volume))
+
+	// Update Fx buttons:
+	for a := 0; a < 5; a++ {
+		u.FxButtons[a].SetActive(u.s.Fx[a].Enabled)
+	}
 }
 
 func main() {
@@ -108,16 +130,17 @@ func main() {
 	grid.SetOrientation(gtk.ORIENTATION_VERTICAL)
 
 	// Create combobox for program selection:
-	cbo, _ := gtk.ComboBoxTextNew()
-	cbo.SetHExpand(true)
+	cboProgram, _ := gtk.ComboBoxTextNew()
+	cboProgram.SetHExpand(true)
 
 	// Add program names to combobox:
 	for _, pr := range controller.Programs {
 		log.Println(pr.Name)
-		cbo.AppendText(pr.Name)
+		cboProgram.AppendText(pr.Name)
 	}
 
-	grid.Add(cbo)
+	cboProgram.SetActive(controller.Curr.PrIdx)
+	grid.Add(cboProgram)
 
 	gridSplit, _ := gtk.GridNew()
 	gridSplit.SetOrientation(gtk.ORIENTATION_HORIZONTAL)
@@ -136,6 +159,25 @@ func main() {
 	grid.Add(gridSplit)
 	win.Add(grid)
 
+	updateUi := func() {
+		if cboProgram.GetActive() != controller.Curr.PrIdx {
+			cboProgram.SetActive(controller.Curr.PrIdx)
+		}
+
+		// Update UI elements:
+		ampUi[0].Update()
+		ampUi[1].Update()
+
+		// Redraw UI:
+		win.QueueDraw()
+	}
+
+	cboProgram.Connect("changed", func(cbo *gtk.ComboBoxText) {
+		controller.Curr.PrIdx = cbo.GetActive()
+		controller.ActivateProgram()
+		updateUi()
+	})
+
 	// Listen to key-press-events:
 	win.Connect("key-press-event", func(win *gtk.Window, ev *gdk.Event) {
 		keyEvent := &gdk.EventKey{ev}
@@ -150,11 +192,7 @@ func main() {
 		// Handle the footswitch event with controller logic:
 		controller.HandleFswEvent(fswEvent)
 
-		// Update UI elements:
-		// TODO.
-
-		// Redraw UI:
-		//win.QueueDraw()
+		updateUi()
 	})
 	win.Connect("key-release-event", func(win *gtk.Window, ev *gdk.Event) {
 		keyEvent := &gdk.EventKey{ev}
@@ -169,11 +207,7 @@ func main() {
 		// Handle the footswitch event with controller logic:
 		controller.HandleFswEvent(fswEvent)
 
-		// Update UI elements:
-		// TODO.
-
-		// Redraw UI:
-		//win.QueueDraw()
+		updateUi()
 	})
 
 	// Recursively show all widgets contained in this window.
