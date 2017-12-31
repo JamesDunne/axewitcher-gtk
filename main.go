@@ -31,7 +31,7 @@ func keyEventToFswEvent(keyEvent *gdk.EventKey) axewitcher.FswButton {
 // Hold all UI widgets that should be updated from controller:
 type AmpUI struct {
 	topStack *gtk.Stack
-	lblName  *gtk.Label
+	Volume   *gtk.Scale
 }
 
 func (u *AmpUI) TopWidget() gtk.IWidget {
@@ -40,11 +40,27 @@ func (u *AmpUI) TopWidget() gtk.IWidget {
 
 func AmpUINew(name string) *AmpUI {
 	u := &AmpUI{}
+
 	u.topStack, _ = gtk.StackNew()
 	u.topStack.SetHExpand(true)
-	//u.topStack.SetVExpand(true)
-	u.lblName, _ = gtk.LabelNew(name)
-	u.topStack.Add(u.lblName)
+	u.topStack.SetVExpand(true)
+
+	grid, _ := gtk.GridNew()
+	grid.SetOrientation(gtk.ORIENTATION_VERTICAL)
+	u.topStack.Add(grid)
+
+	lblName, _ := gtk.LabelNew(name)
+	grid.Add(lblName)
+
+	u.Volume, _ = gtk.ScaleNewWithRange(
+		gtk.ORIENTATION_HORIZONTAL,
+		0,
+		127,
+		1)
+	u.Volume.SetValue(98)
+	u.Volume.SetHExpand(true)
+
+	grid.Add(u.Volume)
 
 	return u
 }
