@@ -45,10 +45,31 @@ func main() {
 
 	grid, _ := gtk.GridNew()
 	grid.SetOrientation(gtk.ORIENTATION_VERTICAL)
+
 	cbo, _ := gtk.ComboBoxTextNew()
 	cbo.SetHExpand(true)
 	grid.Add(cbo)
-	grid.SetOrientation(gtk.ORIENTATION_HORIZONTAL)
+
+	stackMG, _ := gtk.StackNew()
+	stackMG.SetHExpand(true)
+	stackMG.SetVExpand(true)
+	lblMG, _ := gtk.LabelNew("MG")
+	stackMG.Add(lblMG)
+
+	stackJD, _ := gtk.StackNew()
+	stackJD.SetHExpand(true)
+	stackJD.SetVExpand(true)
+	lblJD, _ := gtk.LabelNew("JD")
+	stackJD.Add(lblJD)
+
+	gridSplit, _ := gtk.GridNew()
+	gridSplit.SetOrientation(gtk.ORIENTATION_HORIZONTAL)
+	gridSplit.SetHExpand(true)
+	gridSplit.SetVExpand(true)
+
+	gridSplit.Add(stackMG)
+	gridSplit.Add(stackJD)
+	grid.Add(gridSplit)
 	win.Add(grid)
 
 	// Create MIDI interface:
