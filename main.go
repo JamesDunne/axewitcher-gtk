@@ -70,15 +70,18 @@ func AmpUINew(name string, s *axewitcher.AmpState, c *axewitcher.AmpConfig) *Amp
 	})
 	grid.Add(u.Volume)
 
+	box, _ := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 0)
 	// FX toggle buttons:
 	for a := 0; a < 5; a++ {
 		a := a
 		u.FxButtons[a], _ = gtk.ToggleButtonNewWithLabel(c.Fx[a].Name)
+		u.FxButtons[a].SetHExpand(true)
 		u.FxButtons[a].Connect("toggled", func(btn *gtk.ToggleButton) {
 			s.Fx[a].Enabled = btn.GetActive()
 		})
-		grid.Add(u.FxButtons[a])
+		box.Add(u.FxButtons[a])
 	}
+	grid.Add(box)
 
 	u.topStack.Add(grid)
 
