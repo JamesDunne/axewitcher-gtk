@@ -104,6 +104,7 @@ type UI struct {
 
 	grid       *gtk.Grid
 	cboProgram *gtk.ComboBoxText
+	spinScene  *gtk.SpinButton
 	ampUi      [2]*AmpUI
 }
 
@@ -131,11 +132,30 @@ func (u *UI) Init() {
 
 	u.cboProgram.SetActive(u.controller.Curr.PrIdx)
 	u.cboProgram.Connect("changed", func(cbo *gtk.ComboBoxText) {
-		u.controller.Curr.PrIdx = cbo.GetActive()
-		u.controller.ActivateProgram()
-		u.Update()
+		if u.controller.Curr.PrIdx != cbo.GetActive() {
+			u.controller.Curr.PrIdx = cbo.GetActive()
+			u.controller.ActivateProgram()
+			u.Update()
+		}
 	})
-	u.grid.Add(u.cboProgram)
+
+	spinAdjustment, _ := gtk.AdjustmentNew(
+		float64(u.controller.Curr.SceneIdx),
+		1, float64(len(u.controller.Curr.Pr.Scenes)),
+		1, 1, 0)
+	u.spinScene, _ = gtk.SpinButtonNew(spinAdjustment, 1.0, 0)
+	u.spinScene.Connect("value-changed", func(spin *gtk.SpinButton) {
+		if u.controller.Curr.SceneIdx != spin.GetValueAsInt()-1 {
+			u.controller.Curr.SceneIdx = spin.GetValueAsInt() - 1
+			u.controller.ActivateScene()
+			u.Update()
+		}
+	})
+
+	box, _ := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 0)
+	box.Add(u.cboProgram)
+	box.Add(u.spinScene)
+	u.grid.Add(box)
 
 	gridSplit, _ := gtk.GridNew()
 	gridSplit.SetOrientation(gtk.ORIENTATION_HORIZONTAL)
@@ -156,8 +176,16 @@ func (u *UI) Init() {
 }
 
 func (u *UI) Update() {
+	// Update program selection:
 	if u.cboProgram.GetActive() != u.controller.Curr.PrIdx {
 		u.cboProgram.SetActive(u.controller.Curr.PrIdx)
+		// Update scene spinner adjustment:
+		u.spinScene.GetAdjustment().SetUpper(float64(len(u.controller.Curr.Pr.Scenes)))
+	}
+
+	// Update scene spinner:
+	if u.spinScene.GetValueAsInt()-1 != u.controller.Curr.SceneIdx {
+		u.spinScene.SetValue(float64(u.controller.Curr.SceneIdx + 1))
 	}
 
 	// Update UI elements:
@@ -198,6 +226,7 @@ func main() {
 	}
 	controller.Init()
 
+	// Create UI:
 	ui := NewUI(win, controller)
 	ui.Init()
 
