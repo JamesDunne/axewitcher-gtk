@@ -32,13 +32,13 @@ func keyEventToFswEvent(keyEvent *gdk.EventKey) axewitcher.FswButton {
 type AmpUI struct {
 	s         *axewitcher.AmpState
 	c         *axewitcher.AmpConfig
-	topStack  *gtk.Stack
+	frame     *gtk.Frame
 	Volume    *gtk.Scale
 	FxButtons [5]*gtk.ToggleButton
 }
 
 func (u *AmpUI) TopWidget() gtk.IWidget {
-	return u.topStack
+	return u.frame
 }
 
 func AmpUINew(name string, s *axewitcher.AmpState, c *axewitcher.AmpConfig) *AmpUI {
@@ -47,15 +47,13 @@ func AmpUINew(name string, s *axewitcher.AmpState, c *axewitcher.AmpConfig) *Amp
 		c: c,
 	}
 
-	u.topStack, _ = gtk.StackNew()
-	u.topStack.SetHExpand(true)
-	u.topStack.SetVExpand(true)
+	u.frame, _ = gtk.FrameNew(name)
+	u.frame.SetLabelAlign(0.5, 0.5)
+	u.frame.SetHExpand(true)
+	u.frame.SetVExpand(true)
 
 	grid, _ := gtk.GridNew()
 	grid.SetOrientation(gtk.ORIENTATION_VERTICAL)
-
-	lblName, _ := gtk.LabelNew(name)
-	grid.Add(lblName)
 
 	// Volume control:
 	u.Volume, _ = gtk.ScaleNewWithRange(
@@ -83,7 +81,7 @@ func AmpUINew(name string, s *axewitcher.AmpState, c *axewitcher.AmpConfig) *Amp
 	}
 	grid.Add(box)
 
-	u.topStack.Add(grid)
+	u.frame.Add(grid)
 
 	return u
 }
