@@ -98,6 +98,76 @@ func (u *AmpUI) Update() {
 	}
 }
 
+type UI struct {
+	win        *gtk.Window
+	controller *axewitcher.Controller
+
+	grid       *gtk.Grid
+	cboProgram *gtk.ComboBoxText
+	ampUi      [2]*AmpUI
+}
+
+func NewUI(win *gtk.Window, controller *axewitcher.Controller) *UI {
+	return &UI{
+		win:        win,
+		controller: controller,
+	}
+}
+
+func (u *UI) Init() {
+	// Create grid for UI:
+	u.grid, _ = gtk.GridNew()
+	u.grid.SetOrientation(gtk.ORIENTATION_VERTICAL)
+
+	// Create combobox for program selection:
+	u.cboProgram, _ = gtk.ComboBoxTextNew()
+	u.cboProgram.SetHExpand(true)
+
+	// Add program names to combobox:
+	for _, pr := range u.controller.Programs {
+		log.Println(pr.Name)
+		u.cboProgram.AppendText(pr.Name)
+	}
+
+	u.cboProgram.SetActive(u.controller.Curr.PrIdx)
+	u.cboProgram.Connect("changed", func(cbo *gtk.ComboBoxText) {
+		u.controller.Curr.PrIdx = cbo.GetActive()
+		u.controller.ActivateProgram()
+		u.Update()
+	})
+	u.grid.Add(u.cboProgram)
+
+	gridSplit, _ := gtk.GridNew()
+	gridSplit.SetOrientation(gtk.ORIENTATION_HORIZONTAL)
+	gridSplit.SetHExpand(true)
+	gridSplit.SetVExpand(true)
+
+	// Create UI widgets to represent amp states:
+	u.ampUi = [2]*AmpUI{
+		AmpUINew("MG", &u.controller.Curr.Amp[0], &u.controller.Curr.AmpConfig[0]),
+		AmpUINew("JD", &u.controller.Curr.Amp[1], &u.controller.Curr.AmpConfig[1]),
+	}
+
+	gridSplit.Add(u.ampUi[0].TopWidget())
+	gridSplit.Add(u.ampUi[1].TopWidget())
+
+	u.grid.Add(gridSplit)
+	u.win.Add(u.grid)
+}
+
+func (u *UI) Update() {
+	if u.cboProgram.GetActive() != u.controller.Curr.PrIdx {
+		u.cboProgram.SetActive(u.controller.Curr.PrIdx)
+	}
+
+	// Update UI elements:
+	u.ampUi[0].Update()
+	u.ampUi[1].Update()
+
+	// Redraw UI:
+	u.win.QueueDraw()
+}
+
 func main() {
 	gtk.Init(nil)
 
@@ -128,58 +198,8 @@ func main() {
 	}
 	controller.Init()
 
-	// Create grid for UI:
-	grid, _ := gtk.GridNew()
-	grid.SetOrientation(gtk.ORIENTATION_VERTICAL)
-
-	// Create combobox for program selection:
-	cboProgram, _ := gtk.ComboBoxTextNew()
-	cboProgram.SetHExpand(true)
-
-	// Add program names to combobox:
-	for _, pr := range controller.Programs {
-		log.Println(pr.Name)
-		cboProgram.AppendText(pr.Name)
-	}
-
-	cboProgram.SetActive(controller.Curr.PrIdx)
-	grid.Add(cboProgram)
-
-	gridSplit, _ := gtk.GridNew()
-	gridSplit.SetOrientation(gtk.ORIENTATION_HORIZONTAL)
-	gridSplit.SetHExpand(true)
-	gridSplit.SetVExpand(true)
-
-	// Create UI widgets to represent amp states:
-	ampUi := [2]*AmpUI{
-		AmpUINew("MG", &controller.Curr.Amp[0], &controller.Curr.AmpConfig[0]),
-		AmpUINew("JD", &controller.Curr.Amp[1], &controller.Curr.AmpConfig[1]),
-	}
-
-	gridSplit.Add(ampUi[0].TopWidget())
-	gridSplit.Add(ampUi[1].TopWidget())
-
-	grid.Add(gridSplit)
-	win.Add(grid)
-
-	updateUi := func() {
-		if cboProgram.GetActive() != controller.Curr.PrIdx {
-			cboProgram.SetActive(controller.Curr.PrIdx)
-		}
-
-		// Update UI elements:
-		ampUi[0].Update()
-		ampUi[1].Update()
-
-		// Redraw UI:
-		win.QueueDraw()
-	}
-
-	cboProgram.Connect("changed", func(cbo *gtk.ComboBoxText) {
-		controller.Curr.PrIdx = cbo.GetActive()
-		controller.ActivateProgram()
-		updateUi()
-	})
+	ui := NewUI(win, controller)
+	ui.Init()
 
 	// Listen to key-press-events:
 	win.Connect("key-press-event", func(win *gtk.Window, ev *gdk.Event) {
@@ -195,7 +215,7 @@ func main() {
 		// Handle the footswitch event with controller logic:
 		controller.HandleFswEvent(fswEvent)
 
-		updateUi()
+		ui.Update()
 	})
 	win.Connect("key-release-event", func(win *gtk.Window, ev *gdk.Event) {
 		keyEvent := &gdk.EventKey{ev}
@@ -210,7 +230,7 @@ func main() {
 		// Handle the footswitch event with controller logic:
 		controller.HandleFswEvent(fswEvent)
 
-		updateUi()
+		ui.Update()
 	})
 
 	// Recursively show all widgets contained in this window.
