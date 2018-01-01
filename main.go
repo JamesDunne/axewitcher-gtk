@@ -30,21 +30,29 @@ func keyEventToFswEvent(keyEvent *gdk.EventKey) axewitcher.FswButton {
 
 // Hold all UI widgets that should be updated from controller:
 type AmpUI struct {
-	s         *axewitcher.AmpState
-	c         *axewitcher.AmpConfig
-	frame     *gtk.Frame
-	Volume    *gtk.Scale
-	FxButtons [5]*gtk.ToggleButton
+	controller *axewitcher.Controller
+	amp        int
+	s          *axewitcher.AmpState
+	c          *axewitcher.AmpConfig
+
+	frame       *gtk.Frame
+	volume      *gtk.Scale
+	btnDirty    *gtk.RadioButton
+	btnClean    *gtk.RadioButton
+	btnAcoustic *gtk.RadioButton
+	FxButtons   [5]*gtk.ToggleButton
 }
 
 func (u *AmpUI) TopWidget() gtk.IWidget {
 	return u.frame
 }
 
-func AmpUINew(name string, s *axewitcher.AmpState, c *axewitcher.AmpConfig) *AmpUI {
+func AmpUINew(controller *axewitcher.Controller, amp int, name string) *AmpUI {
 	u := &AmpUI{
-		s: s,
-		c: c,
+		controller: controller,
+		amp:        amp,
+		s:          &controller.Curr.Amp[amp],
+		c:          &controller.Curr.AmpConfig[amp],
 	}
 
 	u.frame, _ = gtk.FrameNew(name)
@@ -55,29 +63,61 @@ func AmpUINew(name string, s *axewitcher.AmpState, c *axewitcher.AmpConfig) *Amp
 	grid, _ := gtk.GridNew()
 	grid.SetOrientation(gtk.ORIENTATION_VERTICAL)
 
+	// Add amp mode radio buttons:
+	u.btnDirty, _ = gtk.RadioButtonNewWithLabel(nil, "dirty")
+	u.btnDirty.SetMode(false)
+	u.btnDirty.SetHExpand(true)
+	u.btnDirty.Connect("toggled", func(btn *gtk.RadioButton) {
+		if btn.GetActive() {
+			u.s.Mode = axewitcher.AmpDirty
+		}
+	})
+	u.btnClean, _ = gtk.RadioButtonNewWithLabelFromWidget(u.btnDirty, "clean")
+	u.btnClean.SetMode(false)
+	u.btnClean.SetHExpand(true)
+	u.btnClean.Connect("toggled", func(btn *gtk.RadioButton) {
+		if btn.GetActive() {
+			u.s.Mode = axewitcher.AmpClean
+		}
+	})
+	u.btnAcoustic, _ = gtk.RadioButtonNewWithLabelFromWidget(u.btnDirty, "acoustic")
+	u.btnAcoustic.SetMode(false)
+	u.btnAcoustic.SetHExpand(true)
+	u.btnAcoustic.Connect("toggled", func(btn *gtk.RadioButton) {
+		if btn.GetActive() {
+			u.s.Mode = axewitcher.AmpAcoustic
+		}
+	})
+	box, _ := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 0)
+	box.Add(u.btnDirty)
+	box.Add(u.btnClean)
+	box.Add(u.btnAcoustic)
+	grid.Add(box)
+
 	// Volume control:
-	u.Volume, _ = gtk.ScaleNewWithRange(
+	u.volume, _ = gtk.ScaleNewWithRange(
 		gtk.ORIENTATION_HORIZONTAL,
 		0,
 		127,
 		1)
-	u.Volume.SetHExpand(true)
-	u.Volume.SetValue(float64(s.Volume))
-	u.Volume.Connect("value-changed", func(r *gtk.Scale) {
-		s.Volume = uint8(r.GetValue())
+	u.volume.SetHExpand(true)
+	u.volume.SetValue(float64(u.s.Volume))
+	u.volume.Connect("value-changed", func(r *gtk.Scale) {
+		u.s.Volume = uint8(r.GetValue())
 	})
-	grid.Add(u.Volume)
+	grid.Add(u.volume)
 
-	box, _ := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 0)
+	box, _ = gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 0)
 	// FX toggle buttons:
-	for a := 0; a < 5; a++ {
-		a := a
-		u.FxButtons[a], _ = gtk.ToggleButtonNewWithLabel(c.Fx[a].Name)
-		u.FxButtons[a].SetHExpand(true)
-		u.FxButtons[a].Connect("toggled", func(btn *gtk.ToggleButton) {
-			s.Fx[a].Enabled = btn.GetActive()
+	for n := 0; n < 5; n++ {
+		n := n
+		u.FxButtons[n], _ = gtk.ToggleButtonNewWithLabel(u.c.Fx[n].Name)
+		u.FxButtons[n].SetHExpand(true)
+		u.FxButtons[n].Connect("toggled", func(btn *gtk.ToggleButton) {
+			u.s.Fx[n].Enabled = btn.GetActive()
+			u.controller.SendMidi()
 		})
-		box.Add(u.FxButtons[a])
+		box.Add(u.FxButtons[n])
 	}
 	grid.Add(box)
 
@@ -87,8 +127,18 @@ func AmpUINew(name string, s *axewitcher.AmpState, c *axewitcher.AmpConfig) *Amp
 }
 
 func (u *AmpUI) Update() {
+	// Update amp mode toggles:
+	switch u.s.Mode {
+	case axewitcher.AmpDirty:
+		u.btnDirty.SetActive(true)
+	case axewitcher.AmpClean:
+		u.btnClean.SetActive(true)
+	case axewitcher.AmpAcoustic:
+		u.btnAcoustic.SetActive(true)
+	}
+
 	// Update volume range:
-	u.Volume.SetValue(float64(u.s.Volume))
+	u.volume.SetValue(float64(u.s.Volume))
 
 	// Update Fx buttons:
 	for a := 0; a < 5; a++ {
@@ -162,8 +212,8 @@ func (u *UI) Init() {
 
 	// Create UI widgets to represent amp states:
 	u.ampUi = [2]*AmpUI{
-		AmpUINew("MG", &u.controller.Curr.Amp[0], &u.controller.Curr.AmpConfig[0]),
-		AmpUINew("JD", &u.controller.Curr.Amp[1], &u.controller.Curr.AmpConfig[1]),
+		AmpUINew(u.controller, 0, "MG"),
+		AmpUINew(u.controller, 1, "JD"),
 	}
 
 	gridSplit.Add(u.ampUi[0].TopWidget())
@@ -227,37 +277,40 @@ func main() {
 	// Create UI:
 	ui := NewUI(win, controller)
 	ui.Init()
+	ui.Update()
 
 	// Listen to key-press-events:
-	win.Connect("key-press-event", func(win *gtk.Window, ev *gdk.Event) {
+	win.Connect("key-press-event", func(win *gtk.Window, ev *gdk.Event) bool {
 		keyEvent := &gdk.EventKey{ev}
 
 		var fswEvent axewitcher.FswEvent
 		fswEvent.State = true
 		fswEvent.Fsw = keyEventToFswEvent(keyEvent)
 		if fswEvent.Fsw == axewitcher.FswNone {
-			return
+			return false
 		}
 
 		// Handle the footswitch event with controller logic:
 		controller.HandleFswEvent(fswEvent)
 
 		ui.Update()
+		return true
 	})
-	win.Connect("key-release-event", func(win *gtk.Window, ev *gdk.Event) {
+	win.Connect("key-release-event", func(win *gtk.Window, ev *gdk.Event) bool {
 		keyEvent := &gdk.EventKey{ev}
 
 		var fswEvent axewitcher.FswEvent
 		fswEvent.State = false
 		fswEvent.Fsw = keyEventToFswEvent(keyEvent)
 		if fswEvent.Fsw == axewitcher.FswNone {
-			return
+			return false
 		}
 
 		// Handle the footswitch event with controller logic:
 		controller.HandleFswEvent(fswEvent)
 
 		ui.Update()
+		return true
 	})
 
 	// Recursively show all widgets contained in this window.
